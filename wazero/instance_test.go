@@ -57,6 +57,20 @@ func TestRegisterImports(t *testing.T) {
 	require.Equal(t, ins.RegisterImports(v1.ProxyWasmABI_0_1_0), ErrInstanceAlreadyStart)
 }
 
+func TestStartInstancesTwice(t *testing.T) {
+	vm := NewVM()
+	defer vm.Close()
+
+	require.Equal(t, vm.Name(), "wazero")
+
+	module := vm.NewModule(simpleWasm)
+	ins := module.NewInstance().(*Instance)
+	err := ins.Start()
+	require.NoError(t, err)
+	ins.Start()
+	require.NoError(t, err)
+}
+
 func TestInstanceMem(t *testing.T) {
 	vm := NewVM()
 	defer vm.Close()

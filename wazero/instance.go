@@ -48,6 +48,7 @@ type Instance struct {
 	vm     *VM
 	module *Module
 
+	runtime  wazero.Runtime
 	instance api.Module
 	abiList  []types.ABI
 
@@ -127,10 +128,13 @@ func (i *Instance) GetModule() common.WasmModule {
 // Start makes a new namespace which has the module dependencies of the guest.
 func (i *Instance) Start() error {
 	ctx := context.Background()
-	r := i.module.runtime
+	i.runtime = wazero.NewRuntimeWithConfig(
+		context.Background(),
+		wazero.NewRuntimeConfig().WithCompilationCache(i.vm.cache))
+	r := i.runtime
 
 	if _, err := wasi_snapshot_preview1.NewBuilder(r).Instantiate(ctx); err != nil {
-		i.module.Close(ctx)
+		r.Close(ctx)
 		log.DefaultLogger.Warnf("[wazero][instance] Start fail to create wasi_snapshot_preview1 env, err: %v", err)
 		panic(err)
 	}
