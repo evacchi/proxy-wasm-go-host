@@ -109,6 +109,18 @@ func TestInstanceData(t *testing.T) {
 	}
 }
 
+func TestInstanceStartTwice(t *testing.T) {
+	vm := NewVM()
+	defer vm.Close()
+
+	module := vm.NewModule(simpleWasm)
+	ins := module.NewInstance()
+	defer ins.Stop()
+
+	require.Nil(t, ins.Start())
+	require.Nil(t, ins.Start())
+}
+
 func TestRefCount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

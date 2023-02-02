@@ -21,10 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tetratelabs/wazero"
 	"sync"
 	"sync/atomic"
 
-	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"mosn.io/mosn/pkg/log"
@@ -129,10 +129,12 @@ func (i *Instance) Start() error {
 	ctx := context.Background()
 	r := i.module.runtime
 
-	if _, err := wasi_snapshot_preview1.NewBuilder(r).Instantiate(ctx); err != nil {
-		i.module.Close(ctx)
-		log.DefaultLogger.Warnf("[wazero][instance] Start fail to create wasi_snapshot_preview1 env, err: %v", err)
-		panic(err)
+	if r.Module(wasi_snapshot_preview1.ModuleName) == nil {
+		if _, err := wasi_snapshot_preview1.NewBuilder(r).Instantiate(ctx); err != nil {
+			i.module.Close(ctx)
+			log.DefaultLogger.Warnf("[wazero][instance] Start fail to create wasi_snapshot_preview1 env, err: %v", err)
+			panic(err)
+		}
 	}
 
 	i.abiList = abi.GetABIList(i)
@@ -142,11 +144,15 @@ func (i *Instance) Start() error {
 		abi.OnInstanceCreate(i)
 	}
 
-	ins, err := r.InstantiateModule(ctx, i.module.module, wazero.NewModuleConfig())
-	if err != nil {
-		i.module.Close(ctx)
-		log.DefaultLogger.Errorf("[wazero][instance] Start failed to instantiate module, err: %v", err)
-		return err
+	var mod api.Module
+	if mod = r.Module(i.module.module.Name()); mod == nil {
+		ins, err := r.InstantiateModule(ctx, i.module.module, wazero.NewModuleConfig())
+		if err != nil {
+			i.module.Close(ctx)
+			log.DefaultLogger.Errorf("[wazero][instance] Start failed to instantiate module, err: %v", err)
+			return err
+		}
+		mod = ins
 	}
 
 	// Handle any ABI requirements after the guest is instantiated.
@@ -154,7 +160,7 @@ func (i *Instance) Start() error {
 		abi.OnInstanceStart(i)
 	}
 
-	i.instance = ins
+	i.instance = mod
 
 	atomic.StoreUint32(&i.started, 1)
 
