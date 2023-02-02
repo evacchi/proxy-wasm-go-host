@@ -18,6 +18,7 @@
 package wazero
 
 import (
+	"context"
 	"strings"
 
 	wazero "github.com/tetratelabs/wazero"
@@ -32,7 +33,9 @@ type Module struct {
 	rawBytes    []byte
 }
 
-func NewModule(vm *VM, module wazero.CompiledModule, wasmBytes []byte) *Module {
+func NewModule(vm *VM, wasmBytes []byte) *Module {
+	module := compileModule(vm, wasmBytes) // this is only necessary for GetABINameList
+
 	m := &Module{
 		vm:       vm,
 		module:   module,
@@ -42,6 +45,17 @@ func NewModule(vm *VM, module wazero.CompiledModule, wasmBytes []byte) *Module {
 	m.Init()
 
 	return m
+}
+
+func compileModule(vm *VM, wasmBytes []byte) wazero.CompiledModule {
+	ctx := context.Background()
+	tempRt := wazero.NewRuntimeWithConfig(ctx,
+		wazero.NewRuntimeConfig().WithCompilationCache(vm.cache))
+	module, err := tempRt.CompileModule(ctx, wasmBytes)
+	if err != nil {
+		panic(err)
+	}
+	return module
 }
 
 func (w *Module) Init() {
