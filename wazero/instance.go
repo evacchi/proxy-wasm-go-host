@@ -45,8 +45,9 @@ var (
 )
 
 type Instance struct {
-	vm     *VM
-	module *Module
+	vm      *VM
+	module  *Module
+	runtime wazero.Runtime
 
 	instance api.Module
 	abiList  []types.ABI
@@ -63,11 +64,12 @@ type Instance struct {
 type InstanceOptions func(instance *Instance)
 
 func NewInstance(vm *VM, module *Module, options ...InstanceOptions) *Instance {
-	// Here, we initialize an empty namespace as imports are defined prior to start.
+	// Here, we initialize an empty runtime as imports are defined prior to start.
 	ins := &Instance{
-		vm:     vm,
-		module: module,
-		lock:   sync.Mutex{},
+		vm:      vm,
+		module:  module,
+		runtime: wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(vm.cache)),
+		lock:    sync.Mutex{},
 	}
 
 	ins.stopCond = sync.NewCond(&ins.lock)
@@ -124,10 +126,10 @@ func (i *Instance) GetModule() common.WasmModule {
 	return i.module
 }
 
-// Start makes a new namespace which has the module dependencies of the guest.
+// Start makes a new runtime which has the module dependencies of the guest.
 func (i *Instance) Start() error {
 	ctx := context.Background()
-	r := i.module.runtime
+	r := i.runtime
 
 	if _, err := wasi_snapshot_preview1.NewBuilder(r).Instantiate(ctx); err != nil {
 		i.module.Close(ctx)
@@ -194,7 +196,7 @@ func (i *Instance) RegisterImports(abiName string) error {
 		return ErrInstanceAlreadyStart
 	}
 
-	r := i.module.runtime
+	r := i.runtime
 
 	// proxy-wasm cannot run multiple ABI in the same instance because the ABI
 	// collides. They all use the same module name: "env"

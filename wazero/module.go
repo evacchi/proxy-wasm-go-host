@@ -28,16 +28,14 @@ import (
 
 type Module struct {
 	vm          *VM
-	runtime     wazero.Runtime
 	module      wazero.CompiledModule
 	abiNameList []string
 	rawBytes    []byte
 }
 
-func NewModule(vm *VM, runtime wazero.Runtime, module wazero.CompiledModule, wasmBytes []byte) *Module {
+func NewModule(vm *VM, module wazero.CompiledModule, wasmBytes []byte) *Module {
 	m := &Module{
 		vm:       vm,
-		runtime:  runtime,
 		module:   module,
 		rawBytes: wasmBytes,
 	}
@@ -51,7 +49,7 @@ func (w *Module) Init() {
 }
 
 func (w *Module) Close(ctx context.Context) {
-	w.runtime.Close(ctx)
+	//w.runtime.Close(ctx)
 }
 
 func (w *Module) NewInstance() common.WasmInstance {

@@ -57,7 +57,7 @@ func (w *VM) NewModule(wasmBytes []byte) common.WasmModule {
 		panic(err)
 	}
 
-	return NewModule(w, runtime, m, wasmBytes)
+	return NewModule(w, m, wasmBytes)
 }
 
 // Close implements io.Closer
