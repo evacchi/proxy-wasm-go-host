@@ -68,7 +68,7 @@ func NewInstance(vm *VM, module *Module, options ...InstanceOptions) *Instance {
 	ins := &Instance{
 		vm:      vm,
 		module:  module,
-		runtime: wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(vm.cache)),
+		runtime: wazero.NewRuntimeWithConfig(ctx, vm.config),
 		lock:    sync.Mutex{},
 	}
 
@@ -132,8 +132,10 @@ func (i *Instance) Start() error {
 	r := i.runtime
 
 	if _, err := wasi_snapshot_preview1.NewBuilder(r).Instantiate(ctx); err != nil {
-		i.module.Close(ctx)
 		log.DefaultLogger.Warnf("[wazero][instance] Start fail to create wasi_snapshot_preview1 env, err: %v", err)
+		if err2 := r.Close(ctx); err2 != nil {
+			log.DefaultLogger.Warnf("[wazero][instance] Error on Runtime.Close: %v", err2)
+		}
 		panic(err)
 	}
 
@@ -146,8 +148,10 @@ func (i *Instance) Start() error {
 
 	ins, err := r.InstantiateModule(ctx, i.module.module, wazero.NewModuleConfig())
 	if err != nil {
-		i.module.Close(ctx)
 		log.DefaultLogger.Errorf("[wazero][instance] Start failed to instantiate module, err: %v", err)
+		if err2 := r.Close(ctx); err2 != nil {
+			log.DefaultLogger.Warnf("[wazero][instance] Error on Runtime.Close: %v", err2)
+		}
 		return err
 	}
 
@@ -178,8 +182,8 @@ func (i *Instance) Stop() {
 			}
 		}
 
-		if m := i.module; m != nil {
-			m.Close(ctx)
+		if r := i.runtime; r != nil {
+			r.Close(ctx)
 		}
 	}, nil)
 }
@@ -212,7 +216,7 @@ func (i *Instance) RegisterImports(abiName string) error {
 		wasiBuilder := r.NewHostModuleBuilder("wasi_unstable")
 		wasi_snapshot_preview1.NewFunctionExporter().ExportFunctions(wasiBuilder)
 		if _, err := wasiBuilder.Instantiate(ctx); err != nil {
-			i.module.Close(ctx)
+			r.Close(ctx)
 			log.DefaultLogger.Warnf("[wazero][instance] RegisterImports fail to create wasi_unstable env, err: %v", err)
 			panic(err)
 		}

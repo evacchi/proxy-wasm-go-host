@@ -19,6 +19,7 @@ package wazero
 
 import (
 	"context"
+	"mosn.io/mosn/pkg/log"
 	"strings"
 
 	wazero "github.com/tetratelabs/wazero"
@@ -49,7 +50,8 @@ func (w *Module) Init() {
 }
 
 func (w *Module) Close(ctx context.Context) {
-	//w.runtime.Close(ctx)
+	err := w.module.Close(ctx)
+	log.DefaultLogger.Warnf("[wazero][module] Error on close: %v", err)
 }
 
 func (w *Module) NewInstance() common.WasmInstance {
